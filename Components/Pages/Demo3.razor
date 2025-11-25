@@ -1,0 +1,236 @@
+@page "/demo3"
+@rendermode InteractiveServer
+@using Microsoft.SemanticKernel
+@using Microsoft.SemanticKernel.ChatCompletion
+@using SemanticKernelDemoWeb.Services
+@inject SemanticKernelService SemanticKernelService
+
+<PageTitle>Demo 3: Prompt Chaining</PageTitle>
+
+<div class="container" style="padding-top: 40px;">
+    <a href="/" class="back-button">&larr; Back to Demos</a>
+
+    <div class="demo-card featured" style="margin-bottom: 30px;">
+        <div class="demo-icon">&#x1F9E9;</div>
+        <h2>Prompt Functions & Chaining</h2>
+        <p>Watch reusable prompt functions feed outputs into each other to create a complete blog post</p>
+    </div>
+
+    <div class="demo-output">
+        <h3>Create Blog Post Through Chaining</h3>
+        <p style="color: #718096; margin-bottom: 20px;">
+            Each step uses the output from the previous step as input - like building with LEGO blocks
+        </p>
+
+        <div style="margin-bottom: 30px;">
+            <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #2d3748;">
+                Topic:
+            </label>
+            <input type="text" 
+                   class="chat-input" 
+                   style="margin-bottom: 15px;"
+                   @bind="topic" 
+                   placeholder="Enter a topic for the blog post..."
+                   disabled="@isRunning" />
+            
+            <button class="btn btn-primary" @onclick="RunDemo" disabled="@(isRunning || string.IsNullOrWhiteSpace(topic))">
+                @((MarkupString)(isRunning ? "&#x1F504; Creating..." : "&#x25B6;&#xFE0F; Start Chaining"))
+            </button>
+        </div>
+
+        @if (isRunning)
+        {
+            <div class="status-message status-info">
+                <div class="loading-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                Step @currentStep of 4: @currentStepName
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="status-message status-error">
+                &#x274C; @errorMessage
+            </div>
+        }
+
+        @if (steps.Any())
+        {
+            <div style="margin-top: 30px;">
+                <h4 style="margin-bottom: 20px; color: #2d3748;">Chaining Progress</h4>
+                
+                @foreach (var step in steps)
+                {
+                    <div class="demo-step">
+                        <div class="demo-step-title">
+                            @((MarkupString)step.Icon) Step @step.Number: @step.Title
+                        </div>
+                        <div class="demo-step-content">
+                            @step.Output
+                        </div>
+                        @if (step.Number < steps.Count)
+                        {
+                            <div style="text-align: center; margin: 15px 0; color: #667eea;">
+                                &#x2B07;&#xFE0F; <em>Output feeds into next step</em>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            @if (!isRunning)
+            {
+                <div class="setup-card" style="margin-top: 30px; background: linear-gradient(135deg, #fff 0%, #f8f9ff 100%);">
+                    <h4 style="color: #2d3748; margin-bottom: 15px;">&#x1F4DD; Complete Blog Post</h4>
+                    <div style="white-space: pre-line; line-height: 1.8; color: #4a5568;">
+                        @GetCompleteBlogPost()
+                    </div>
+                </div>
+
+                <div class="status-message status-success" style="margin-top: 20px;">
+                    &#x2728; <strong>Notice:</strong> Each function was reusable and composable - like modular building blocks!
+                </div>
+            }
+        }
+    </div>
+
+    <div class="setup-card" style="margin-top: 30px;">
+        <h3>&#x1F4A1; How Prompt Chaining Works</h3>
+        <ul class="features-list">
+            <li>&#x1F4CB; <strong>Step 1: Outline</strong> - Creates structure for the article</li>
+            <li>&#x270D;&#xFE0F; <strong>Step 2: Introduction</strong> - Writes engaging opening</li>
+            <li>&#x1F4A1; <strong>Step 3: Key Points</strong> - Expands outline into details</li>
+            <li>&#x1F3AC; <strong>Step 4: Conclusion</strong> - Wraps up with call-to-action</li>
+        </ul>
+        <p style="color: #718096; margin-top: 15px;">
+            <strong>Real-world use:</strong> Content generation, report creation, documentation, email templates
+        </p>
+    </div>
+</div>
+
+@code {
+    private bool isRunning = false;
+    private string errorMessage = string.Empty;
+    private string topic = "artificial intelligence in healthcare";
+    private List<ChainStep> steps = new();
+    private int currentStep = 0;
+    private string currentStepName = "";
+
+    private async Task RunDemo()
+    {
+        if (isRunning) return;
+
+        isRunning = true;
+        errorMessage = string.Empty;
+        steps = new();
+        currentStep = 0;
+
+        try
+        {
+            var kernel = SemanticKernelService.CreateKernel();
+
+            // Step 1: Generate outline
+            currentStep = 1;
+            currentStepName = "Generating outline";
+            StateHasChanged();
+
+            var outlinePrompt = $"Create a brief 3-point outline for an article about: {topic}\n\nFormat as:\n1. [Point]\n2. [Point]\n3. [Point]";
+            var outline = await kernel.InvokePromptAsync(outlinePrompt);
+            
+            steps.Add(new ChainStep
+            {
+                Number = 1,
+                Icon = "&#x1F4CB;",
+                Title = "Create Outline",
+                Output = outline.ToString()
+            });
+            StateHasChanged();
+            await Task.Delay(1000);
+
+            // Step 2: Write introduction
+            currentStep = 2;
+            currentStepName = "Writing introduction";
+            StateHasChanged();
+
+            var introPrompt = $"Write a 2-sentence engaging introduction for an article about: {topic}\n\nBased on this outline:\n{outline}\n\nKeep it brief and hooking.";
+            var introduction = await kernel.InvokePromptAsync(introPrompt);
+            
+            steps.Add(new ChainStep
+            {
+                Number = 2,
+                Icon = "&#x270D;&#xFE0F;",
+                Title = "Write Introduction",
+                Output = introduction.ToString()
+            });
+            StateHasChanged();
+            await Task.Delay(1000);
+
+            // Step 3: Generate key points
+            currentStep = 3;
+            currentStepName = "Generating key points";
+            StateHasChanged();
+
+            var pointsPrompt = $"Based on this outline:\n{outline}\n\nExpand each point into one detailed sentence. Format as bullet points.";
+            var keyPoints = await kernel.InvokePromptAsync(pointsPrompt);
+            
+            steps.Add(new ChainStep
+            {
+                Number = 3,
+                Icon = "&#x1F4A1;",
+                Title = "Generate Key Points",
+                Output = keyPoints.ToString()
+            });
+            StateHasChanged();
+            await Task.Delay(1000);
+
+            // Step 4: Write conclusion
+            currentStep = 4;
+            currentStepName = "Writing conclusion";
+            StateHasChanged();
+
+            var conclusionPrompt = $"Write a 2-sentence conclusion for an article about: {topic}\n\nBased on these key points:\n{keyPoints}\n\nSummarize and provide a call-to-action.";
+            var conclusion = await kernel.InvokePromptAsync(conclusionPrompt);
+            
+            steps.Add(new ChainStep
+            {
+                Number = 4,
+                Icon = "&#x1F3AC;",
+                Title = "Write Conclusion",
+                Output = conclusion.ToString()
+            });
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}. Make sure Ollama is running with llama3.2 model.";
+        }
+        finally
+        {
+            isRunning = false;
+            currentStep = 0;
+            currentStepName = "";
+        }
+    }
+
+    private string GetCompleteBlogPost()
+    {
+        if (steps.Count != 4) return "";
+
+        return $@"{steps[1].Output}
+
+{steps[2].Output}
+
+{steps[3].Output}";
+    }
+
+    private class ChainStep
+    {
+        public int Number { get; set; }
+        public string Icon { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Output { get; set; } = string.Empty;
+    }
+}

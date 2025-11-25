@@ -1,0 +1,154 @@
+﻿@page "/"
+@using Microsoft.SemanticKernel
+
+<PageTitle>Semantic Kernel Demos</PageTitle>
+
+<div class="hero-section">
+    <div class="container">
+        <div class="hero-content">
+            <h1 class="hero-title">
+                <span class="gradient-text">Semantic Kernel</span>
+                <br />Advanced Demos
+            </h1>
+            <p class="hero-subtitle">
+                Explore AI agents, function calling, multi-agent collaboration, and more using local models
+            </p>
+            <div class="hero-badges">
+                <span class="badge badge-primary">&#x1F916; 5 Interactive Demos</span>
+                <span class="badge badge-secondary">&#x1F512; 100% Local</span>
+                <span class="badge badge-success">&#x26A1; .NET 10</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="demo-grid">
+        <!-- Demo 1 -->
+        <div class="demo-card featured">
+            <div class="demo-icon">&#x1F916;</div>
+            <h3>Function Calling Agent</h3>
+            <p>AI automatically chooses which tool to use based on your request</p>
+            <div class="demo-meta">
+                <span class="tag tag-easy">Easy</span>
+                <span class="tag tag-recommended">&#x2B50; Recommended</span>
+            </div>
+            <a href="/demo1" class="btn btn-primary">Try Demo &rarr;</a>
+        </div>
+
+        <!-- Demo 2 -->
+        <div class="demo-card featured">
+            <div class="demo-icon">&#x1F4AC;</div>
+            <h3>Multi-Agent Collaboration</h3>
+            <p>Specialized agents (Researcher, Writer, Editor) work together</p>
+            <div class="demo-meta">
+                <span class="tag tag-medium">Medium</span>
+                <span class="tag tag-advanced">Advanced</span>
+            </div>
+            <a href="/demo2" class="btn btn-primary">Try Demo &rarr;</a>
+        </div>
+
+        <!-- Demo 3 -->
+        <div class="demo-card featured">
+            <div class="demo-icon">&#x1F9E9;</div>
+            <h3>Prompt Chaining</h3>
+            <p>Reusable prompt functions that feed outputs into each other</p>
+            <div class="demo-meta">
+                <span class="tag tag-easy">Easy</span>
+                <span class="tag tag-practical">Practical</span>
+            </div>
+            <a href="/demo3" class="btn btn-primary">Try Demo &rarr;</a>
+        </div>
+
+        <!-- Demo 4 -->
+        <div class="demo-card featured">
+            <div class="demo-icon">&#x1F9E0;</div>
+            <h3>Semantic Search & RAG</h3>
+            <p>AI searches through documents using semantic similarity</p>
+            <div class="demo-meta">
+                <span class="tag tag-medium">Medium</span>
+                <span class="tag tag-enterprise">Enterprise</span>
+            </div>
+            <a href="/demo4" class="btn btn-primary">Try Demo &rarr;</a>
+        </div>
+
+        <!-- Demo 5 -->
+        <div class="demo-card featured">
+            <div class="demo-icon">&#x1F4AD;</div>
+            <h3>Conversational Agent</h3>
+            <p>Interactive chat with context memory and tool access</p>
+            <div class="demo-meta">
+                <span class="tag tag-medium">Medium</span>
+                <span class="tag tag-interactive">&#x1F3AE; Interactive</span>
+            </div>
+            <a href="/demo5" class="btn btn-primary">Try Demo &rarr;</a>
+        </div>
+    </div>
+
+    <div class="status-message status-success" style="text-align: center; margin: 30px 0; font-size: 1.1rem;">
+        &#x2728; <strong>All 5 Demos Now Available!</strong> Click any demo above to start exploring.
+    </div>
+
+    <!-- Setup Instructions -->
+    <div class="setup-section">
+        <div class="setup-card">
+            <h2>&#x1F680; Quick Setup</h2>
+            <div class="setup-steps">
+                <div class="setup-step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Install Ollama</h4>
+                        <p>Download from <a href="https://ollama.ai" target="_blank">ollama.ai</a></p>
+                    </div>
+                </div>
+                <div class="setup-step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Pull the Model</h4>
+                        <code>ollama pull llama3.2</code>
+                    </div>
+                </div>
+                <div class="setup-step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Start Exploring</h4>
+                        <p>Click any demo above to get started!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="features-card">
+            <h2>&#x2728; Features</h2>
+            <ul class="features-list">
+                <li>&#x1F512; <strong>100% Local</strong> - No API keys, full privacy</li>
+                <li>&#x1F4B0; <strong>Zero Cost</strong> - No API charges</li>
+                <li>&#x26A1; <strong>Real-time</strong> - Interactive demonstrations</li>
+                <li>&#x1F3AF; <strong>Production Ready</strong> - Real-world patterns</li>
+                <li>&#x1F527; <strong>Customizable</strong> - Open source & extensible</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Comparison Section -->
+    <div class="comparison-section">
+        <h2>&#x1F19A; Why Semantic Kernel?</h2>
+        <div class="comparison-grid">
+            <div class="comparison-card">
+                <h4>vs Microsoft.Extensions.AI</h4>
+                <p><strong>Extensions.AI:</strong> Basic chat interface</p>
+                <p><strong>Semantic Kernel:</strong> Full orchestration with plugins, planning, and agents</p>
+            </div>
+            <div class="comparison-card">
+                <h4>vs MCP</h4>
+                <p><strong>MCP:</strong> Protocol for connecting AI to tools</p>
+                <p><strong>Semantic Kernel:</strong> Complete framework with multi-agent support</p>
+            </div>
+            <div class="comparison-card">
+                <h4>vs LangChain</h4>
+                <p><strong>LangChain:</strong> Python-first ecosystem</p>
+                <p><strong>Semantic Kernel:</strong> Native .NET with better Azure integration</p>
+            </div>
+        </div>
+    </div>
+</div>

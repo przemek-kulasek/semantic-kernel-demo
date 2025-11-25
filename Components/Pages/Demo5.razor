@@ -1,0 +1,205 @@
+@page "/demo5"
+@rendermode InteractiveServer
+@using Microsoft.SemanticKernel
+@using Microsoft.SemanticKernel.ChatCompletion
+@using Microsoft.SemanticKernel.Connectors.OpenAI
+@using SemanticKernelDemoWeb.Services
+@inject SemanticKernelService SemanticKernelService
+
+<PageTitle>Demo 5: Conversational Agent</PageTitle>
+
+<div class="container" style="padding-top: 40px; padding-bottom: 40px;">
+    <a href="/" class="back-button">&larr; Back to Demos</a>
+
+    <div class="chat-container">
+        <div class="chat-header">
+            <h2 style="margin: 0; font-size: 1.5rem;">&#x1F4AD; Conversational Agent</h2>
+            <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 0.95rem;">
+                Chat with an AI that remembers context and has access to tools
+            </p>
+        </div>
+
+        <div class="chat-messages" @ref="messagesContainer">
+            @if (!messages.Any())
+            {
+                <div class="status-message status-info">
+                    <strong>&#x1F44B; Welcome!</strong> I'm an AI assistant with tools. Try asking me to:
+                    <ul style="text-align: left; margin: 10px 0 0 30px;">
+                        <li>Remember your favorite color</li>
+                        <li>Tell you a fun fact about programming</li>
+                        <li>Track what topics we discuss</li>
+                        <li>Recall information I've saved</li>
+                    </ul>
+                </div>
+            }
+
+            @foreach (var msg in messages)
+            {
+                <div class="message @msg.Role">
+                    <div class="message-avatar">
+                        @((MarkupString)(msg.Role == "user" ? "&#x1F464;" : "&#x1F916;"))
+                    </div>
+                    <div class="message-content">
+                        @msg.Content
+                    </div>
+                </div>
+            }
+
+            @if (isProcessing)
+            {
+                <div class="message agent">
+                    <div class="message-avatar">&#x1F916;</div>
+                    <div class="message-content">
+                        <div class="loading-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="chat-input-container">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="status-message status-error" style="margin-bottom: 15px;">
+                    &#x274C; @errorMessage
+                </div>
+            }
+
+            <form class="chat-input-form" @onsubmit="SendMessage">
+                <input 
+                    type="text" 
+                    class="chat-input" 
+                    placeholder="Type your message..." 
+                    @bind="userInput"
+                    disabled="@isProcessing" />
+                <button type="submit" class="btn btn-primary" disabled="@(isProcessing || string.IsNullOrWhiteSpace(userInput))">
+                    @(isProcessing ? "Sending..." : "Send")
+                </button>
+            </form>
+
+            <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+                <button class="btn btn-secondary" style="font-size: 0.85rem; padding: 8px 14px;" 
+                        @onclick='() => SetInput("Remember that my favorite color is blue")' 
+                        disabled="@isProcessing">
+                    &#x1F499; Save preference
+                </button>
+                <button class="btn btn-secondary" style="font-size: 0.85rem; padding: 8px 14px;" 
+                        @onclick='() => SetInput("Tell me a fun fact about programming")' 
+                        disabled="@isProcessing">
+                    &#x2728; Fun fact
+                </button>
+                <button class="btn btn-secondary" style="font-size: 0.85rem; padding: 8px 14px;" 
+                        @onclick='() => SetInput("What topics have we discussed?")' 
+                        disabled="@isProcessing">
+                    &#x1F4DA; List topics
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="setup-card" style="margin-top: 30px;">
+        <h3>&#x1F4A1; What Makes This Special?</h3>
+        <ul class="features-list">
+            <li>&#x1F9E0; <strong>Context Memory</strong> - Remembers entire conversation</li>
+            <li>&#x1F527; <strong>Tool Access</strong> - Can save preferences, track topics, generate facts</li>
+            <li>&#x1F3AF; <strong>Smart Decisions</strong> - Automatically uses tools when needed</li>
+            <li>&#x1F4AC; <strong>Natural Conversation</strong> - Responds like a human assistant</li>
+        </ul>
+    </div>
+</div>
+
+@code {
+    private ElementReference messagesContainer;
+    private string userInput = string.Empty;
+    private string errorMessage = string.Empty;
+    private bool isProcessing = false;
+    private List<ChatMessage> messages = new();
+    private ChatHistory? chatHistory;
+    private Kernel? kernel;
+
+    protected override void OnInitialized()
+    {
+        try
+        {
+            kernel = SemanticKernelService.CreateKernel();
+            kernel.Plugins.AddFromType<ConversationPlugin>();
+            
+            chatHistory = new ChatHistory();
+            chatHistory.AddSystemMessage("""
+                You are a helpful AI assistant with access to tools. 
+                Be conversational, remember previous context, and use tools when appropriate.
+                Keep responses concise but friendly.
+                """);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to initialize: {ex.Message}";
+        }
+    }
+
+    private void SetInput(string text)
+    {
+        userInput = text;
+        StateHasChanged();
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(userInput) || isProcessing || chatHistory == null || kernel == null)
+            return;
+
+        var message = userInput.Trim();
+        userInput = string.Empty;
+        isProcessing = true;
+        errorMessage = string.Empty;
+
+        // Add user message
+        messages.Add(new ChatMessage { Role = "user", Content = message });
+        
+        try
+        {
+            var chatService = kernel.GetRequiredService<IChatCompletionService>();
+            chatHistory.AddUserMessage(message);
+
+            var executionSettings = new OpenAIPromptExecutionSettings
+            {
+                ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions,
+                Temperature = 0.8
+            };
+
+            var response = await chatService.GetChatMessageContentAsync(
+                chatHistory,
+                executionSettings,
+                kernel);
+
+            chatHistory.AddAssistantMessage(response.Content!);
+
+            // Add agent response
+            messages.Add(new ChatMessage { Role = "agent", Content = response.Content! });
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}. Make sure Ollama is running with llama3.2.";
+        }
+        finally
+        {
+            isProcessing = false;
+            await ScrollToBottom();
+        }
+    }
+
+    private async Task ScrollToBottom()
+    {
+        await Task.Delay(100);
+        StateHasChanged();
+    }
+
+    private class ChatMessage
+    {
+        public string Role { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+    }
+}

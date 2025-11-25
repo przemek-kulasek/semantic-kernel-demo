@@ -1,0 +1,213 @@
+@page "/demo2"
+@rendermode InteractiveServer
+@using Microsoft.SemanticKernel
+@using Microsoft.SemanticKernel.Agents
+@using Microsoft.SemanticKernel.ChatCompletion
+@using SemanticKernelDemoWeb.Services
+@inject SemanticKernelService SemanticKernelService
+
+<PageTitle>Demo 2: Multi-Agent Collaboration</PageTitle>
+
+<div class="container" style="padding-top: 40px;">
+    <a href="/" class="back-button">&larr; Back to Demos</a>
+
+    <div class="demo-card featured" style="margin-bottom: 30px;">
+        <div class="demo-icon">&#x1F4AC;</div>
+        <h2>Multi-Agent Collaboration</h2>
+        <p>Watch specialized agents (Researcher, Writer, Editor) collaborate to create content</p>
+    </div>
+
+    <div class="demo-output">
+        <h3>Create Content Through Agent Collaboration</h3>
+        <p style="color: #718096; margin-bottom: 20px;">
+            Click the button to watch three specialized agents work together to create an article
+        </p>
+
+        <div style="margin-bottom: 30px;">
+            <button class="btn btn-primary" @onclick="RunDemo" disabled="@isRunning">
+                @((MarkupString)(isRunning ? "&#x1F504; Agents Working..." : "&#x25B6;&#xFE0F; Start Collaboration"))
+            </button>
+        </div>
+
+        @if (isRunning)
+        {
+            <div class="status-message status-info">
+                <div class="loading-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                Agents are collaborating...
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="status-message status-error">
+                &#x274C; @errorMessage
+            </div>
+        }
+
+        @if (agentOutputs.Any())
+        {
+            <div style="margin-top: 30px;">
+                <h4 style="margin-bottom: 20px; color: #2d3748;">Agent Collaboration Flow</h4>
+                
+                @foreach (var output in agentOutputs)
+                {
+                    <div class="demo-step" style="border-left-color: @GetAgentColor(output.AgentName);">
+                        <div class="demo-step-title">
+                            @((MarkupString)GetAgentEmoji(output.AgentName)) [@output.AgentName]
+                        </div>
+                        <div class="demo-step-content">
+                            @output.Content
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="status-message status-success" style="margin-top: 20px;">
+                &#x2728; <strong>Notice:</strong> Each agent contributed their specialized expertise - no manual coordination needed!
+            </div>
+        }
+    </div>
+
+    <div class="setup-card" style="margin-top: 30px;">
+        <h3>&#x1F4A1; How Multi-Agent Systems Work</h3>
+        <ul class="features-list">
+            <li>&#x1F52C; <strong>Researcher Agent</strong> - Gathers facts and technical information</li>
+            <li>&#x270D;&#xFE0F; <strong>Writer Agent</strong> - Creates engaging, accessible content</li>
+            <li>&#x1F4CB; <strong>Editor Agent</strong> - Reviews and provides constructive feedback</li>
+            <li>&#x1F91D; <strong>Automatic Collaboration</strong> - Agents pass work between each other</li>
+        </ul>
+        <p style="color: #718096; margin-top: 15px;">
+            <strong>Real-world use:</strong> Content creation, code review, document processing, quality assurance workflows
+        </p>
+    </div>
+</div>
+
+@code {
+    private bool isRunning = false;
+    private string errorMessage = string.Empty;
+    private List<AgentOutput> agentOutputs = new();
+    private readonly string topic = "quantum computing for beginners";
+
+    private async Task RunDemo()
+    {
+        if (isRunning) return;
+
+        isRunning = true;
+        errorMessage = string.Empty;
+        agentOutputs = new();
+
+        try
+        {
+            var kernel = SemanticKernelService.CreateKernel();
+
+            // Create specialized agents
+            var researcherAgent = new ChatCompletionAgent
+            {
+                Name = "Researcher",
+                Instructions = "You are a researcher who gathers facts and provides detailed technical information. Be thorough and cite sources when possible.",
+                Kernel = kernel
+            };
+
+            var writerAgent = new ChatCompletionAgent
+            {
+                Name = "Writer",
+                Instructions = "You take research information and write clear, engaging summaries for general audiences. Make complex topics accessible.",
+                Kernel = kernel
+            };
+
+            var editorAgent = new ChatCompletionAgent
+            {
+                Name = "Editor",
+                Instructions = "You review written content and provide constructive feedback on clarity, accuracy, and engagement. Be brief and suggest improvements.",
+                Kernel = kernel
+            };
+
+            // Researcher gathers information
+            var researchHistory = new ChatHistory();
+            researchHistory.AddUserMessage($"Provide 3 key facts about {topic}. Be concise.");
+            
+            string? researchContent = null;
+            await foreach (var response in researcherAgent.InvokeAsync(researchHistory))
+            {
+                researchContent = response.Message?.Content;
+            }
+
+            agentOutputs.Add(new AgentOutput
+            {
+                AgentName = "Researcher",
+                Content = researchContent ?? "No response"
+            });
+            StateHasChanged();
+            await Task.Delay(500);
+
+            // Writer creates content
+            var writerHistory = new ChatHistory();
+            writerHistory.AddUserMessage($"Based on this research:\n{researchContent}\n\nWrite a brief, engaging 3-sentence explanation of {topic}.");
+            
+            string? writerContent = null;
+            await foreach (var response in writerAgent.InvokeAsync(writerHistory))
+            {
+                writerContent = response.Message?.Content;
+            }
+
+            agentOutputs.Add(new AgentOutput
+            {
+                AgentName = "Writer",
+                Content = writerContent ?? "No response"
+            });
+            StateHasChanged();
+            await Task.Delay(500);
+
+            // Editor reviews
+            var editorHistory = new ChatHistory();
+            editorHistory.AddUserMessage($"Review this explanation:\n{writerContent}\n\nProvide 2 brief suggestions for improvement.");
+            
+            string? editorContent = null;
+            await foreach (var response in editorAgent.InvokeAsync(editorHistory))
+            {
+                editorContent = response.Message?.Content;
+            }
+
+            agentOutputs.Add(new AgentOutput
+            {
+                AgentName = "Editor",
+                Content = editorContent ?? "No response"
+            });
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}. Make sure Ollama is running with llama3.2 model.";
+        }
+        finally
+        {
+            isRunning = false;
+        }
+    }
+
+    private string GetAgentEmoji(string agentName) => agentName switch
+    {
+        "Researcher" => "&#x1F52C;",
+        "Writer" => "&#x270D;&#xFE0F;",
+        "Editor" => "&#x1F4CB;",
+        _ => "&#x1F464;"
+    };
+
+    private string GetAgentColor(string agentName) => agentName switch
+    {
+        "Researcher" => "#667eea",
+        "Writer" => "#f59e0b",
+        "Editor" => "#10b981",
+        _ => "#718096"
+    };
+
+    private class AgentOutput
+    {
+        public string AgentName { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+    }
+}

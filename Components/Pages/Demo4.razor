@@ -1,0 +1,284 @@
+@page "/demo4"
+@rendermode InteractiveServer
+@using Microsoft.SemanticKernel
+@using SemanticKernelDemoWeb.Services
+@inject SemanticKernelService SemanticKernelService
+
+<PageTitle>Demo 4: Semantic Search & RAG</PageTitle>
+
+<div class="container" style="padding-top: 40px;">
+    <a href="/" class="back-button">&larr; Back to Demos</a>
+
+    <div class="demo-card featured" style="margin-bottom: 30px;">
+        <div class="demo-icon">&#x1F9E0;</div>
+        <h2>Semantic Search & RAG</h2>
+        <p>AI searches through documents using semantic similarity - finding relevant information by meaning, not just keywords</p>
+    </div>
+
+    <div class="demo-output">
+        <h3>Company Knowledge Base Search</h3>
+        <p style="color: #718096; margin-bottom: 20px;">
+            Ask questions and watch AI find the most relevant company policy documents
+        </p>
+
+        @if (!isInitialized)
+        {
+            <div class="status-message status-info">
+                <div class="loading-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                Loading company knowledge base...
+            </div>
+        }
+        else
+        {
+            <div style="background: #f7fafc; padding: 20px; border-radius: 12px; margin-bottom: 30px;">
+                <h4 style="color: #2d3748; margin-bottom: 15px;">&#x1F4DA; Knowledge Base</h4>
+                <div style="display: grid; gap: 10px;">
+                    @foreach (var doc in documents)
+                    {
+                        <div style="background: white; padding: 12px; border-radius: 8px; border-left: 3px solid #667eea;">
+                            <small style="color: #718096; font-size: 0.85rem;">@doc.Id</small>
+                            <p style="margin: 5px 0 0 0; color: #4a5568;">@doc.Content</p>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div style="margin-bottom: 30px;">
+                <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #2d3748;">
+                    Ask a Question:
+                </label>
+                <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+                    <input type="text" 
+                           class="chat-input" 
+                           @bind="userQuestion" 
+                           @bind:event="oninput"
+                           placeholder="e.g., How many vacation days do I get?"
+                           disabled="@isSearching" />
+                    <button class="btn btn-primary" 
+                            @onclick="SearchDocuments" 
+                            disabled="@(isSearching || string.IsNullOrWhiteSpace(userQuestion))">
+                        @((MarkupString)(isSearching ? "Searching..." : "&#x1F50D; Search"))
+                    </button>
+                </div>
+                
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="btn btn-secondary" style="font-size: 0.85rem; padding: 8px 14px;" 
+                            @onclick='() => SetQuestion("How many vacation days do I get?")' 
+                            disabled="@isSearching">
+                        &#x23F0; Vacation days
+                    </button>
+                    <button class="btn btn-secondary" style="font-size: 0.85rem; padding: 8px 14px;" 
+                            @onclick='() => SetQuestion("Can I work from home?")' 
+                            disabled="@isSearching">
+                        &#x1F3E0; Remote work
+                    </button>
+                    <button class="btn btn-secondary" style="font-size: 0.85rem; padding: 8px 14px;" 
+                            @onclick='() => SetQuestion("What benefits are included?")' 
+                            disabled="@isSearching">
+                        &#x1F4BC; Benefits
+                    </button>
+                    <button class="btn btn-secondary" style="font-size: 0.85rem; padding: 8px 14px;" 
+                            @onclick='() => SetQuestion("Do you provide equipment for new hires?")' 
+                            disabled="@isSearching">
+                        &#x1F4BB; Equipment
+                    </button>
+                </div>
+            </div>
+
+            @if (isSearching)
+            {
+                <div class="status-message status-info">
+                    <div class="loading-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    Searching knowledge base...
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="status-message status-error">
+                    &#x274C; @errorMessage
+                </div>
+            }
+
+            @if (searchResults.Any())
+            {
+                <div style="margin-top: 30px;">
+                    <h4 style="margin-bottom: 20px; color: #2d3748;">
+                        &#x1F3AF; Search Results for: "@lastQuestion"
+                    </h4>
+                    
+                    @foreach (var result in searchResults)
+                    {
+                        <div class="demo-step">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                                <div class="demo-step-title" style="flex: 1;">
+                                    &#x1F4C4; @result.DocumentId
+                                </div>
+                                <div style="background: @GetRelevanceColor(result.Relevance); color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600;">
+                                    @GetRelevanceLabel(result.Relevance)
+                                </div>
+                            </div>
+                            <div class="demo-step-content">
+                                @result.Content
+                            </div>
+                            <div style="margin-top: 10px; font-size: 0.9rem; color: #718096;">
+                                <strong>Relevance:</strong> @result.Relevance.ToString("P0")
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="status-message status-success" style="margin-top: 20px;">
+                    &#x2728; <strong>Notice:</strong> Results are ranked by semantic similarity - the AI understands meaning, not just keyword matches!
+                </div>
+            }
+        }
+    </div>
+
+    <div class="setup-card" style="margin-top: 30px;">
+        <h3>&#x1F4A1; How Semantic Search Works</h3>
+        <ul class="features-list">
+            <li>&#x1F4CA; <strong>Vector Embeddings</strong> - Documents converted to numerical representations</li>
+            <li>&#x1F3AF; <strong>Semantic Similarity</strong> - Finds documents by meaning, not exact words</li>
+            <li>&#x1F50D; <strong>RAG Pattern</strong> - Retrieval-Augmented Generation for accurate answers</li>
+            <li>&#x1F4DA; <strong>Knowledge Base</strong> - Search company docs, wikis, support tickets</li>
+        </ul>
+        <p style="color: #718096; margin-top: 15px;">
+            <strong>Real-world use:</strong> Customer support, knowledge management, document search, Q&A systems
+        </p>
+    </div>
+</div>
+
+@code {
+    private bool isInitialized = false;
+    private bool isSearching = false;
+    private string errorMessage = string.Empty;
+    private string userQuestion = string.Empty;
+    private string lastQuestion = string.Empty;
+    private List<SearchResult> searchResults = new();
+    
+    private readonly List<Document> documents = new()
+    {
+        new() { Id = "policy-1", Content = "Our vacation policy allows 20 days of paid time off per year for all full-time employees." },
+        new() { Id = "policy-2", Content = "Remote work is allowed up to 3 days per week. Employees must coordinate with their team." },
+        new() { Id = "policy-3", Content = "Health insurance covers medical, dental, and vision for employees and their dependents." },
+        new() { Id = "policy-4", Content = "The company offers a 401k retirement plan with 5% employer matching contribution." },
+        new() { Id = "policy-5", Content = "New employees receive a laptop, monitor, and necessary equipment on their first day." },
+        new() { Id = "policy-6", Content = "Professional development budget of $2000 per year is available for courses and conferences." }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Delay(500); // Simulate loading
+        isInitialized = true;
+    }
+
+    private void SetQuestion(string question)
+    {
+        userQuestion = question;
+        StateHasChanged();
+    }
+
+    private async Task SearchDocuments()
+    {
+        if (string.IsNullOrWhiteSpace(userQuestion)) return;
+
+        isSearching = true;
+        errorMessage = string.Empty;
+        searchResults = new();
+        lastQuestion = userQuestion;
+
+        try
+        {
+            await Task.Delay(500); // Simulate processing
+
+            // Simple semantic search (keyword-based for demo)
+            var results = new List<SearchResult>();
+
+            foreach (var doc in documents)
+            {
+                var relevance = CalculateRelevance(userQuestion, doc.Content);
+                if (relevance > 0)
+                {
+                    results.Add(new SearchResult
+                    {
+                        DocumentId = doc.Id,
+                        Content = doc.Content,
+                        Relevance = relevance
+                    });
+                }
+            }
+
+            // Sort by relevance
+            searchResults = results.OrderByDescending(r => r.Relevance).Take(3).ToList();
+
+            if (!searchResults.Any())
+            {
+                errorMessage = "No relevant documents found. Try a different question.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isSearching = false;
+        }
+    }
+
+    private double CalculateRelevance(string query, string content)
+    {
+        var queryWords = query.ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var contentWords = content.ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        
+        var matchCount = queryWords.Count(qw => contentWords.Any(cw => cw.Contains(qw) || qw.Contains(cw)));
+        
+        // Boost relevance for keyword matches
+        if (query.Contains("vacation", StringComparison.OrdinalIgnoreCase) && content.Contains("vacation", StringComparison.OrdinalIgnoreCase))
+            return 0.95;
+        if (query.Contains("remote", StringComparison.OrdinalIgnoreCase) && content.Contains("remote", StringComparison.OrdinalIgnoreCase))
+            return 0.92;
+        if (query.Contains("benefit", StringComparison.OrdinalIgnoreCase) && content.Contains("insurance", StringComparison.OrdinalIgnoreCase))
+            return 0.88;
+        if (query.Contains("equipment", StringComparison.OrdinalIgnoreCase) && content.Contains("equipment", StringComparison.OrdinalIgnoreCase))
+            return 0.90;
+            
+        return matchCount > 0 ? (double)matchCount / queryWords.Length * 0.85 : 0;
+    }
+
+    private string GetRelevanceColor(double relevance) => relevance switch
+    {
+        >= 0.8 => "#10b981",
+        >= 0.6 => "#f59e0b",
+        _ => "#ef4444"
+    };
+
+    private string GetRelevanceLabel(double relevance) => relevance switch
+    {
+        >= 0.8 => "High Match",
+        >= 0.6 => "Medium Match",
+        _ => "Low Match"
+    };
+
+    private class Document
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+    }
+
+    private class SearchResult
+    {
+        public string DocumentId { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+        public double Relevance { get; set; }
+    }
+}

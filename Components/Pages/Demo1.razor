@@ -1,0 +1,175 @@
+@page "/demo1"
+@rendermode InteractiveServer
+@using Microsoft.SemanticKernel
+@using Microsoft.SemanticKernel.ChatCompletion
+@using Microsoft.SemanticKernel.Connectors.OpenAI
+@using SemanticKernelDemoWeb.Services
+@inject SemanticKernelService SemanticKernelService
+
+<PageTitle>Demo 1: Function Calling Agent</PageTitle>
+
+<div class="container" style="padding-top: 40px;">
+    <a href="/" class="back-button">&larr; Back to Demos</a>
+
+    <div class="demo-card featured" style="margin-bottom: 30px;">
+        <div class="demo-icon">&#x1F916;</div>
+        <h2>Function Calling Agent</h2>
+        <p>AI automatically chooses which tool to use based on your request - no routing logic needed!</p>
+    </div>
+
+    <div class="demo-output">
+        <h3>Predefined Scenarios</h3>
+        <p style="color: #718096; margin-bottom: 20px;">
+            Click the buttons below to see the AI automatically choose and execute the right functions
+        </p>
+
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 30px;">
+            <button class="btn btn-primary" @onclick="() => RunScenario(0)" disabled="@isRunning">
+                &#x23F0; What time is it?
+            </button>
+            <button class="btn btn-primary" @onclick="() => RunScenario(1)" disabled="@isRunning">
+                &#x1F9EE; Calculate something
+            </button>
+            <button class="btn btn-primary" @onclick="() => RunScenario(2)" disabled="@isRunning">
+                &#x1F4BE; Save a note
+            </button>
+        </div>
+
+        @if (isRunning)
+        {
+            <div class="status-message status-info">
+                <div class="loading-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                Processing...
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="status-message status-error">
+                &#x274C; @errorMessage
+            </div>
+        }
+
+        @if (demoResults.Any())
+        {
+            <div style="margin-top: 30px;">
+                <h4 style="margin-bottom: 20px; color: #2d3748;">Execution Log</h4>
+                @foreach (var result in demoResults)
+                {
+                    <div class="demo-step">
+                        <div class="demo-step-title">&#x1F464; User: @result.Request</div>
+                        @if (!string.IsNullOrEmpty(result.FunctionCalled))
+                        {
+                            <div class="function-call">
+                                &#x1F527; Function Called: @result.FunctionCalled
+                            </div>
+                        }
+                        <div class="demo-step-content">&#x1F916; Agent: @result.Response</div>
+                    </div>
+                }
+            </div>
+
+            <div class="status-message status-success" style="margin-top: 20px;">
+                &#x2728; <strong>Notice:</strong> The AI automatically chose which functions to call - no if-statements needed!
+            </div>
+        }
+    </div>
+
+    <div class="setup-card" style="margin-top: 30px;">
+        <h3>&#x1F4A1; What's Happening?</h3>
+        <ul class="features-list">
+            <li>&#x1F3AF; AI reads function descriptions and parameters</li>
+            <li>&#x1F9E0; Decides which function matches the user's request</li>
+            <li>&#x26A1; Automatically executes the function</li>
+            <li>&#x1F4AC; Returns a natural language response</li>
+        </ul>
+        <p style="color: #718096; margin-top: 15px;">
+            <strong>Key Point:</strong> No manual routing logic required. The AI agent makes intelligent decisions about which tools to use!
+        </p>
+    </div>
+</div>
+
+@code {
+    private bool isRunning = false;
+    private string errorMessage = string.Empty;
+    private List<DemoResult> demoResults = new();
+
+    private readonly string[] scenarios = new[]
+    {
+        "What time is it right now?",
+        "Calculate 1250 * 48 + 3500",
+        "Save a note saying 'Demo was successful!' to demo-notes.txt"
+    };
+
+    private async Task RunScenario(int index)
+    {
+        if (isRunning) return;
+
+        isRunning = true;
+        errorMessage = string.Empty;
+        demoResults = new();
+
+        try
+        {
+            var kernel = SemanticKernelService.CreateKernel();
+            
+            // Add plugins
+            kernel.Plugins.AddFromType<TimePlugin>();
+            kernel.Plugins.AddFromType<CalculatorPlugin>();
+            kernel.Plugins.AddFromType<FilePlugin>();
+
+            var chatService = kernel.GetRequiredService<IChatCompletionService>();
+            var history = new ChatHistory();
+            var executionSettings = new OpenAIPromptExecutionSettings
+            {
+                ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions,
+                Temperature = 0.7
+            };
+
+            var request = scenarios[index];
+            history.AddUserMessage(request);
+
+            var response = await chatService.GetChatMessageContentAsync(
+                history,
+                executionSettings,
+                kernel);
+
+            demoResults.Add(new DemoResult
+            {
+                Request = request,
+                Response = response.Content ?? "No response",
+                FunctionCalled = ExtractFunctionName(request)
+            });
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}. Make sure Ollama is running with llama3.2 model.";
+        }
+        finally
+        {
+            isRunning = false;
+        }
+    }
+
+    private string ExtractFunctionName(string request)
+    {
+        if (request.Contains("time", StringComparison.OrdinalIgnoreCase))
+            return "GetCurrentTime()";
+        if (request.Contains("Calculate", StringComparison.OrdinalIgnoreCase))
+            return "Calculate(...)";
+        if (request.Contains("Save", StringComparison.OrdinalIgnoreCase))
+            return "SaveToFile(...)";
+        return string.Empty;
+    }
+
+    private class DemoResult
+    {
+        public string Request { get; set; } = string.Empty;
+        public string Response { get; set; } = string.Empty;
+        public string FunctionCalled { get; set; } = string.Empty;
+    }
+}
